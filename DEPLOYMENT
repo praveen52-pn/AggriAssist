@@ -1,0 +1,208 @@
+# 1. Restructure Your Code for the Web
+First, you must adapt your script to work in a web environment. This involves separating the model training from the application logic and replacing command-line prompts with interactive widgets.
+
+A. Create a train_model.py Script
+This script will train your model and save it to a file. You only need to run this script once. This is crucial as it prevents the model from being retrained every time a user visits your site.
+
+Python
+
+# train_model.py
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+import joblib
+
+# Simulated Dataset
+data = {
+    'Soil_Moisture': [20, 50, 10, 70, 30, 80, 15, 60, 25, 90],
+    'Temperature': [35, 28, 40, 25, 33, 22, 38, 26, 34, 20],
+    'Humidity': [30, 60, 20, 70, 40, 80, 25, 65, 35, 85],
+    'Pest_Density': [80, 10, 90, 5, 70, 0, 85, 15, 60, 2],
+    'Pesticide_Usage': [5, 2, 6, 1, 4, 0, 5, 2, 3, 0],
+    'Crop_Status': [0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+}
+
+df = pd.DataFrame(data)
+X = df[['Soil_Moisture', 'Temperature', 'Humidity', 'Pest_Density', 'Pesticide_Usage']]
+y = df['Crop_Status']
+
+# Train the model on the full dataset
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X, y)
+
+# Save the trained model to a file
+joblib.dump(model, 'crop_model.pkl')
+
+print("Model trained and saved as crop_model.pkl")
+
+Action: Run this script from your terminal (python train_model.py). This will create a crop_model.pkl file in your project folder.
+
+B. Create the app.py Streamlit Application
+This will be your main web app. It loads the pre-trained model and uses interactive widgets instead of input() prompts.
+
+Python
+
+# app.py
+import streamlit as st
+import numpy as np
+import pandas as pd
+import joblib
+
+# Load the pre-trained model and static data
+model = joblib.load('crop_model.pkl')
+# (Copy your crop_data, pesticide_data, and fertilizer_data dictionaries here)
+crop_data = {
+    'Rice': {'demand_tons': 5000, 'market_price_per_kg': 40, 'yield_per_acre_kg': 2000},
+    'Wheat': {'demand_tons': 4000, 'market_price_per_kg': 35, 'yield_per_acre_kg': 1500},
+    'Tomatoes': {'demand_tons': 3000, 'market_price_per_kg': 50, 'yield_per_acre_kg': 10000},
+    'Chillies': {'demand_tons': 2000, 'market_price_per_kg': 80, 'yield_per_acre_kg': 800},
+    'Sugarcane': {'demand_tons': 6000, 'market_price_per_kg': 3, 'yield_per_acre_kg': 35000}
+}
+fertilizer_data = {
+    'Rice': {'Early Growth': 'Urea', 'Mid-Season': 'DAP (Diammonium Phosphate)', 'Flowering': 'MOP (Muriate of Potash)'},
+    'Wheat': {'Early Growth': 'DAP', 'Mid-Season': 'Urea', 'Flowering': 'MOP'},
+    'Tomatoes': {'Early Growth': 'Calcium Nitrate', 'Mid-Season': 'NPK 19-19-19', 'Flowering': 'Potassium Sulfate'},
+    'Chillies': {'Early Growth': 'DAP', 'Mid-Season': 'NPK 13-0-45', 'Flowering': 'Potassium Nitrate'},
+    'Sugarcane': {'Early Growth': 'Urea & SSP (Single Super Phosphate)', 'Mid-Season': 'Potash', 'Flowering': 'None'}
+}
+valid_crops = ['Rice', 'Wheat', 'Tomatoes', 'Chillies', 'Sugarcane']
+
+# --- Core Logic Functions (Copied from your script) ---
+def get_fertilizer_recommendation(soil_fertility, crop_type, growth_stage):
+    # (Copy your get_fertilizer_recommendation function here)
+    if soil_fertility < 40:
+        recommended_fertilizer = fertilizer_data[crop_type][growth_stage]
+        if recommended_fertilizer == 'None':
+             return f"Fertility is low, but no fertilizer is typically needed at the {growth_stage} stage for {crop_type}."
+        return f"Soil fertility is low. Apply **{recommended_fertilizer}** (approx. 50 kg/acre) for the current **{growth_stage}** stage."
+    elif soil_fertility < 60:
+        return "Soil fertility is moderate. Consider adding compost (5 tons/acre) to improve."
+    else:
+        return "Soil fertility is good. Maintain current practices."
+
+def farmer_crop_health_and_price(soil_moisture, temp, humidity, pest_density, pesticide_usage):
+    feature_names = ['Soil_Moisture', 'Temperature', 'Humidity', 'Pest_Density', 'Pesticide_Usage']
+    input_df = pd.DataFrame([[soil_moisture, temp, humidity, pest_density, pesticide_usage]], columns=feature_names)
+    prediction = model.predict(input_df)[0]
+    status = "Good" if prediction == 1 else "Bad"
+    # (Copy the rest of your irrigation/pest logic here)
+    if soil_moisture < 30:
+        irrigation_suggestion = "Low soil moisture—irrigate immediately (20-30L/acre)."
+    elif soil_moisture > 80:
+        irrigation_suggestion = "High soil moisture—stop irrigation to avoid waterlogging."
+    else:
+        irrigation_suggestion = "Moisture levels optimal—maintain current schedule."
+    pesticide_suggestion = "Pest levels are manageable; monitor daily."
+    return status, irrigation_suggestion, pesticide_suggestion
+
+# --- Streamlit App Interface ---
+st.title("🌾 AgriAssist: Smart Farming Companion")
+
+user_type = st.sidebar.radio("Select Your Role", ("Farmer", "Customer"))
+
+if user_type == "Farmer":
+    st.header("👨‍🌾 Farmer Dashboard")
+    crop_type = st.selectbox("Select Crop", valid_crops)
+    growth_stage = st.selectbox("Select Growth Stage", list(fertilizer_data[crop_type].keys()))
+    
+    st.subheader("Simulated Field Conditions")
+    col1, col2 = st.columns(2)
+    with col1:
+        soil_moisture = st.slider("Soil Moisture (%)", 10, 90, 45)
+        temperature = st.slider("Temperature (°C)", 20, 40, 30)
+        humidity = st.slider("Humidity (%)", 20, 85, 55)
+    with col2:
+        pest_density = st.slider("Pest Density (per 100m²)", 0, 90, 30)
+        soil_fertility = st.slider("Soil Fertility (%)", 20, 100, 65)
+        pesticide_usage = st.number_input("Pesticide Usage (L/acre)", min_value=0.0, value=2.5, step=0.1)
+
+    if st.button("Analyze Crop Health"):
+        status, irrigation, pesticide = farmer_crop_health_and_price(soil_moisture, temperature, humidity, pest_density, pesticide_usage)
+        fertilizer = get_fertilizer_recommendation(soil_fertility, crop_type, growth_stage)
+
+        st.subheader("Analysis Report")
+        st.metric(label="Predicted Crop Health Status", value=status)
+        st.info(f"💧 **Irrigation:** {irrigation}")
+        st.warning(f"🌱 **Fertilizer:** {fertilizer}")
+        st.error(f"🐛 **Pest Control:** {pesticide}")
+    
+    st.header("📈 Price & Profit Calculator")
+    market_price = crop_data[crop_type]['market_price_per_kg']
+    asking_price = st.number_input(f"Your Asking Price (₹/kg)", min_value=0.0, value=float(market_price))
+    
+    if st.button("Calculate Profit"):
+        fair_price = (asking_price + market_price) / 2
+        yield_per_acre = crop_data[crop_type]['yield_per_acre_kg']
+        profit_per_acre = (yield_per_acre * fair_price) - (5000 + pesticide_usage * 200)
+        st.metric(label="Fair Sale Price", value=f"₹{fair_price:.2f}/kg")
+        st.metric(label="Estimated Profit per Acre", value=f"₹{profit_per_acre:,.0f}")
+
+elif user_type == "Customer":
+    st.header("🛒 Customer Dashboard")
+    crop_type = st.selectbox("Select Crop to Buy", valid_crops)
+    farmer_asking_price = st.number_input("Farmer's Asking Price (₹/kg)", min_value=0.0, value=45.0)
+
+    if st.button("Calculate Fair Price"):
+        market_price = crop_data[crop_type]['market_price_per_kg']
+        fair_price = (farmer_asking_price + market_price) / 2
+        savings = market_price - fair_price
+
+        st.metric(label="Market Price", value=f"₹{market_price}/kg")
+        st.metric(label="Fair Deal Price", value=f"₹{fair_price:.2f}/kg")
+        st.metric(label="Your Potential Savings", value=f"₹{savings:.2f}/kg", delta=f"{savings:.2f}")
+## 2. Prepare Project Files for Deployment
+Your project folder must contain all the necessary files for the cloud platform to build your app.
+
+Create a requirements.txt File
+This file lists all the Python libraries your app depends on. Create a new text file named requirements.txt with this content:
+
+pandas
+scikit-learn
+streamlit
+joblib
+numpy
+Your final project folder should now look like this:
+
+agri-assist-app/
+
+app.py
+
+crop_model.pkl
+
+requirements.txt
+
+train_model.py
+
+## 3. Deploy to the Cloud
+The final step is to upload your project to GitHub and connect it to a free hosting service.
+
+A. Upload to GitHub
+Create a Repository: Go to GitHub and create a new, public repository.
+
+Upload Files: Use the "Add file" -> "Upload files" option on the repository page to upload the four files from your project folder.
+
+B. Deploy on Hugging Face Spaces
+This is a popular and very easy-to-use platform for hosting data science apps.
+
+Create an Account: Sign up for free at Hugging Face.
+
+Create a New Space:
+
+Click your profile picture, then "New Space".
+
+Give your Space a name (e.g., AgriAssist-App).
+
+Choose a license (e.g., MIT).
+
+Select Streamlit as the "Space SDK".
+
+Click "Create Space".
+
+Link Your GitHub Repo:
+
+In your new Space, go to the "Files" tab.
+
+Click "Add file" and select "Clone from repository".
+
+Paste the HTTPS URL of your GitHub repository.
+
+The platform will automatically pull your code, install the libraries from requirements.txt, and launch your web application. Within a few minutes, you will have a public link to your live AgriAssist app. 🚀
